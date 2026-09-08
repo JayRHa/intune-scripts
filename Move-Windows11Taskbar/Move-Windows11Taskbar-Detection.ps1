@@ -6,39 +6,30 @@
     Exits with code 0 if aligned left, code 1 otherwise.
 .NOTES
     Author:  Jannik Reinhard (jannikreinhard.com)
-    Version: 1.0
+    Version: 1.1
 #>
 
-function Test-RegistryValue {
-    param (
-        [parameter(Mandatory=$true)]
-        [ValidateNotNullOrEmpty()]$Path,
+$Path  = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+$Value = "TaskbarAl"
 
-        [parameter(Mandatory=$true)]
-        [ValidateNotNullOrEmpty()]$Value
-    )
-
-    try {
-        Get-ItemProperty -Path $Path | Select-Object -ExpandProperty $Value -ErrorAction Stop | Out-Null
-        return $true
-    } catch {
-        return $false
-    }
-}
-
-$path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-$value = "TaskbarAl"
-
-$osCaption = (Get-CimInstance -ClassName Win32_OperatingSystem -Property Caption).Caption
-if ($osCaption -notlike "*Windows 11*") {
-    Write-Host "Not Windows 11, skipping"
+# Windows 11 only
+if (Get-ComputerInfo.OsBuildNumber -lt 22000) {
+    Write-Output "Not Windows 11 - compliant"
     exit 0
 }
 
-if (Test-RegistryValue -Path $path -Value $value) {
-    if ((Get-ItemProperty -Path $path -Name $value).TaskbarAl -eq "0") {
+try {
+    $CurrentValue = (Get-ItemProperty -Path $Path -Name $Value -ErrorAction Stop).TaskbarAl
+
+    if ($CurrentValue -eq 0) {
+        Write-Output "Compliant - Taskbar aligned left"
         exit 0
     }
-}
 
-exit 1
+    Write-Output "Non-compliant - TaskbarAl=$CurrentValue"
+    exit 1
+}
+catch {
+    Write-Output "Non-compliant - TaskbarAl not found"
+    exit 1
+}
