@@ -1,22 +1,24 @@
 <!-- jr-brand:start -->
-<div align="center">
+<p align="center">
   <a href="https://jannikreinhard.com/">
-    <img src="https://raw.githubusercontent.com/JayRHa/.github/main/assets/readme/brand-header.png" alt="Jannik Reinhard — Driving AI with passion" width="100%">
+    <img src="https://raw.githubusercontent.com/JayRHa/.github/main/assets/readme/brand-header.png" alt="Jannik Reinhard — I help enterprises ship secure AI agents" width="100%">
   </a>
-  <h1>Intune Scripts</h1>
-  <p><strong>Collection of practical PowerShell scripts for Microsoft Intune administration and device management.</strong></p>
-  <p>
-  <a href="https://jannikreinhard.com/"><img src="https://img.shields.io/badge/Website-146CDD?style=flat-square&amp;logo=wordpress&amp;logoColor=white" alt="Website"></a>
-  <a href="https://github.com/JayRHa"><img src="https://img.shields.io/badge/GitHub-081427?style=flat-square&amp;logo=github&amp;logoColor=white" alt="GitHub"></a>
-  <a href="https://www.linkedin.com/in/jannik-r/"><img src="https://img.shields.io/badge/LinkedIn-0795FF?style=flat-square&amp;logo=linkedin&amp;logoColor=white" alt="LinkedIn"></a>
-  <a href="https://x.com/jannik_reinhard"><img src="https://img.shields.io/badge/X-081427?style=flat-square&amp;logo=x&amp;logoColor=white" alt="X"></a>
-  <a href="https://www.youtube.com/@jannikreinhard"><img src="https://img.shields.io/badge/YouTube-146CDD?style=flat-square&amp;logo=youtube&amp;logoColor=white" alt="YouTube"></a>
-  </p>
-  <p><sub>Driving AI with passion · Microsoft Foundry · Intune · Azure</sub></p>
-</div>
+</p>
+<p align="center">
+  <a href="https://jannikreinhard.com/">Website</a> ·
+  <a href="https://www.linkedin.com/in/jannik-r/">LinkedIn</a> ·
+  <a href="https://x.com/jannik_reinhard">X</a> ·
+  <a href="https://www.youtube.com/@jannikreinhard">YouTube</a>
+</p>
 <!-- jr-brand:end -->
 
+# Intune scripts
+
+**Type:** Collection · **Status:** Community project
+
 ## Overview
+
+Collection of practical PowerShell scripts for Microsoft Intune administration and device management.
 
 This repository contains **40+ ready-to-use scripts** for Intune administrators covering:
 
@@ -27,6 +29,32 @@ This repository contains **40+ ready-to-use scripts** for Intune administrators 
 - **Automation** -- Azure Automation runbooks for group management, assignment monitoring, filter deployment
 - **Diagnostics** -- IME log analysis (with AI summarization), MDM diagnostic log parsing, speed tests
 - **UX Customization** -- Desktop shortcuts, system tray tools, context menu changes, taskbar alignment
+
+<a id="prerequisites"></a>
+
+## Requirements
+
+- **PowerShell 5.1+** (Windows PowerShell) or **PowerShell 7+**
+- **Microsoft Graph PowerShell SDK** (`Install-Module Microsoft.Graph`)
+- **Azure AD / Entra ID permissions** appropriate to each script (see individual script headers)
+- For Python scripts: **Python 3.9+** with `msal`, `requests`, `pandas`, `sweetviz`, `openai`
+
+## Quickstart
+
+```powershell
+# Clone the repository
+git clone https://github.com/JayRHa/intune-scripts.git
+cd intune-scripts
+
+# Example: Check Autopilot prerequisites on a device
+.\Check-AutopilotPrerequisites\Check-AutopilotPrerequisites.ps1
+
+# Example: Get all assignments for a specific AAD group
+.\Get-AllAadGroupAssignments\Get-AllAadGroupAssignments.ps1
+
+# Example: Deploy default Intune filters
+.\Deploy-DefaultFilter\Deploy-DefaultFilter.ps1
+```
 
 ## Repository Structure
 
@@ -76,30 +104,6 @@ This repository contains **40+ ready-to-use scripts** for Intune administrators 
 | `Sync-SecWithDistributionGroup/` | Automation | Mirror security group members to Exchange distribution groups |
 | `Translate-DeivceAndUserGroups/` | Automation | Migrate user/device membership between AAD groups |
 | `Write-ToastSurveyLogAnalytics/` | Remediation | Toast survey with response logging to Log Analytics |
-
-## Prerequisites
-
-- **PowerShell 5.1+** (Windows PowerShell) or **PowerShell 7+**
-- **Microsoft Graph PowerShell SDK** (`Install-Module Microsoft.Graph`)
-- **Azure AD / Entra ID permissions** appropriate to each script (see individual script headers)
-- For Python scripts: **Python 3.9+** with `msal`, `requests`, `pandas`, `sweetviz`, `openai`
-
-## Quickstart
-
-```powershell
-# Clone the repository
-git clone https://github.com/JayRHa/IntuneScripts.git
-cd IntuneScripts
-
-# Example: Check Autopilot prerequisites on a device
-.\Check-AutopilotPrerequisites\Check-AutopilotPrerequisites.ps1
-
-# Example: Get all assignments for a specific AAD group
-.\Get-AllAadGroupAssignments\Get-AllAadGroupAssignments.ps1
-
-# Example: Deploy default Intune filters
-.\Deploy-DefaultFilter\Deploy-DefaultFilter.ps1
-```
 
 ## Authentication
 
@@ -165,13 +169,7 @@ All detection and remediation scripts follow this convention:
 This project is available under the terms in [LICENSE](LICENSE).
 
 <!-- jr-brand-footer:start -->
-
 ---
 
-<div align="center">
-  <p><sub>Built and maintained by <a href="https://jannikreinhard.com/">Jannik Reinhard</a> · Microsoft MVP for Security and AI Platform.</sub></p>
-  <p><a href="https://www.buymeacoffee.com/jannikreinf">Support the open-source work</a></p>
-  <p><strong>Stay healthy, Cheers Jannik</strong></p>
-</div>
-
+[Articles and guides](https://jannikreinhard.com/) · [Repository index](https://github.com/JayRHa/.github/blob/main/REPOSITORIES.md)
 <!-- jr-brand-footer:end -->
