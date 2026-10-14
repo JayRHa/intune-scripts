@@ -25,6 +25,26 @@ Assert ($script:uploads.Count -eq 2) 'Expected one upload per non-empty device'
 Assert (@($script:uploads[0]).Count -eq 1) 'Single app not preserved'
 Assert ($script:uploads[0].AppName -eq 'Äpp') 'UTF-8 app name corrupted'
 Assert (@($script:uploads[1]).Count -eq 3) 'Multi-app batch missing records'
+# Large inventories must split without dropping records or exceeding the byte cap.
+$script:uploads.Clear()
+function Get-MgDeviceManagementManagedDevice {
+ param([switch]$All,$ExpandProperty,$ManagedDeviceId,$ErrorAction)
+ if ($All) { return [pscustomobject]@{id='large';deviceName='Large'} }
+ return [pscustomobject]@{detectedApps=@(1..3 | ForEach-Object { [pscustomobject]@{DisplayName=('x' * 600000);Version="$_"} })}
+}
+& ([scriptblock]::Create($inventory))
+Assert ($script:uploads.Count -eq 3) 'Large inventory was not split'
+foreach ($payload in $script:uploads) {
+ Assert ([Text.Encoding]::UTF8.GetByteCount((ConvertTo-Json -InputObject @($payload) -Compress)) -le 1MB) 'Batch exceeds byte cap'
+}
+# Evaluate only the notification configuration, without running Windows actions.
+$toast=Get-Content (Join-Path $root 'Get-PendingReboot/Get-PendingRebootNotificationRemediation.ps1') -Raw
+$toast=$toast.Substring(0,$toast.IndexOf('$ActionScriptCmdReboot =')) + '
+$ToastText'
+$noDeadline=& ([scriptblock]::Create($toast))
+$withDeadline=& ([scriptblock]::Create($toast)) -RebootDeadline '2026-11-01T18:00:00+01:00'
+Assert (-not $noDeadline.Contains('Reboot deadline:')) 'Deadline fabricated when none supplied'
+Assert ($withDeadline.Contains('Reboot deadline:')) 'Explicit deadline not displayed'
 # Exercise cleanup with fake registry/process commands.
 $script:flags=@{}
 function Join-Path { param($Path,$ChildPath); if ($Path -like 'HKLM:*') { return "$Path\$ChildPath" }; Microsoft.PowerShell.Management\Join-Path $Path $ChildPath }
@@ -46,4 +66,4 @@ $deploy=Get-Content (Join-Path $root 'Create-IntuneSystemtray/Deploy-IntuneSyste
 $embedded=[regex]::Match($deploy,'(?s)\$script = @''\r?\n(.*?)\r?\n''@').Groups[1].Value
 $errors=$null;$null=[System.Management.Automation.Language.Parser]::ParseInput($embedded,[ref]$null,[ref]$errors)
 Assert ($errors.Count -eq 0 -and $embedded.Contains('$path = $PSScriptRoot')) 'Deployed tray parse/path regression'
-Write-Host 'PASS: inventory batching/UTF-8/empty devices, cleanup flags, six script parses and embedded tray parse'
+Write-Host 'PASS: inventory batching/UTF-8/empty devices/byte cap, explicit deadline, cleanup flags, six script parses and embedded tray parse'
