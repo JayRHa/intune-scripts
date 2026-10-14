@@ -17,21 +17,24 @@
 'Windows Upgrade Log Files'
 #>
 
+# Run in 64-bit Windows PowerShell as SYSTEM or an elevated administrator.
+$ErrorActionPreference = 'Stop'
 try {
     $cleanupTypeSelection = 'Temporary Sync Files', 'Downloaded Program Files', 'Memory Dump Files', 'Recycle Bin'
-
-    foreach ($keyName in $cleanupTypeSelection) {
-        $newItemParams = @{
-            Path         = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\$keyName"
-            Name         = 'StateFlags0001'
-            Value        = 1
-            PropertyType = 'DWord'
-            ErrorAction  = 'SilentlyContinue'
-        }
-        New-ItemProperty @newItemParams | Out-Null
+    $cacheRoot = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches'
+    $profileName = 'StateFlags0001'
+    # Reset this profile first so previously selected categories do not run again.
+    foreach ($category in Get-ChildItem -LiteralPath $cacheRoot) {
+        $selected = $cleanupTypeSelection -contains $category.PSChildName
+        New-ItemProperty -LiteralPath $category.PSPath -Name $profileName -Value ([int]$selected * 2) -PropertyType DWord -Force | Out-Null
     }
-
-    Start-Process -FilePath CleanMgr.exe -ArgumentList '/sagerun:1' -NoNewWindow -Wait
+    foreach ($name in $cleanupTypeSelection) {
+        if (-not (Test-Path -LiteralPath (Join-Path $cacheRoot $name))) {
+            throw "Cleanup category '$name' is unavailable on this Windows installation."
+        }
+    }
+    $process = Start-Process -FilePath "$env:SystemRoot\System32\cleanmgr.exe" -ArgumentList '/sagerun:1' -NoNewWindow -Wait -PassThru
+    if ($process.ExitCode -ne 0) { throw "cleanmgr exited with code $($process.ExitCode)." }
     exit 0
 } catch {
     Write-Error "Failed to run disk cleanup: $_"

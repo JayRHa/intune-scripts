@@ -20,7 +20,7 @@ $cmtraceSourceLink = "https://github.com/JayRHa/Intune-Scripts/raw/cdc787103c094
 
 try {
     [System.GC]::Collect()
-    $path = (Split-Path -Parent $($global:MyInvocation.MyCommand.Definition))
+    $path = $PSScriptRoot
 
     # Load Assemblies
     Add-Type -AssemblyName System.Windows.Forms
@@ -36,7 +36,7 @@ try {
 
     # Add Icon
     $objNotifyIcon = New-Object System.Windows.Forms.NotifyIcon
-    $objNotifyIcon.Icon = $path + "\companyPortal.ico"
+    $objNotifyIcon.Icon = [System.Drawing.Icon]::new((Join-Path $path "companyPortal.ico"))
     $objNotifyIcon.Text = "Company Portal"
     $objNotifyIcon.Visible = $true
 
@@ -77,7 +77,7 @@ try {
 
     $objContextMenu.MenuItems.Add($buttonSync) | Out-Null
     $objContextMenu.MenuItems.Add($buttonOpenCompanyPortal) | Out-Null
-    $objContextMenu.MenuItems.AddRange($menuTroubleshoot) | Out-Null
+    $objContextMenu.MenuItems.Add($menuTroubleshoot) | Out-Null
     $objContextMenu.MenuItems.Add($buttonExit) | Out-Null
 
     # Create submenu for CmTrace installation
@@ -132,6 +132,7 @@ try {
 
     # Show the Form - Keep it open
     $objForm.ShowDialog() | Out-Null
+    $objNotifyIcon.Dispose()
     $objForm.Dispose()
 }
 catch {

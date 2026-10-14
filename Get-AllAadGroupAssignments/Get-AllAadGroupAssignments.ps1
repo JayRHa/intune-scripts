@@ -1,6 +1,6 @@
 
 <#PSScriptInfo
-.VERSION 2.3
+.VERSION 2.4
 .GUID a74f64cf-dbd4-45fe-a8f4-c43e23394d45
 .AUTHOR Jannik Reinhard
 .COMPANYNAME
@@ -31,7 +31,7 @@
     Assignments of a specific AAD Group
 .NOTES
     Author : Jannik Reinhard (jannikreinhard.com)
-    Version: 2.3
+    Version: 2.4
     Release: v1.0 - Init
              v2.0 - Rewrite
              v2.1 - Generalization
@@ -55,11 +55,15 @@ function Get-GraphCallCustom {
         $value=$true
     )
     $uri = "https://graph.microsoft.com/beta/$endpoint"
-    if($value -eq $true){
-        return (Invoke-MgGraphRequest -Uri $uri -Method Get -OutputType PSObject).Value
-    }else{
-        return Invoke-MgGraphRequest -Uri $uri -Method Get -OutputType PSObject
-    }
+    $items = [System.Collections.Generic.List[object]]::new()
+    do {
+        $page = Invoke-MgGraphRequest -Uri $uri -Method Get -OutputType PSObject -ErrorAction Stop
+        foreach ($item in $page.value) { $items.Add($item) }
+        $uri = $page.'@odata.nextLink'
+    } while ($uri)
+    if ($value) { return $items.ToArray() }
+    return [PSCustomObject]@{ value = $items.ToArray() }
+
 }
 
 function Get-GroupPerName{
@@ -81,7 +85,12 @@ function Get-GroupPerName{
         }
     }
 
-    return Get-GraphCallCustom -endpoint ('groups?$filter=displayName eq ' + "'$groupName'")
+    $filter = [Uri]::EscapeDataString("displayName eq '" + $groupName.Replace("'", "''") + "'")
+    $matches = @(Get-GraphCallCustom -endpoint ('groups?$filter=' + $filter))
+    if ($matches.Count -gt 1) {
+        throw "Multiple groups named '$groupName'. Use a unique group display name before running this report."
+    }
+    return $matches
 }
 
 function Get-Topic{
@@ -116,6 +125,8 @@ function Get-GroupAssignments{
     $hasAssignment = $false
 
     foreach ($configuration in $configurations){
+        $configurationName = $configuration.displayName
+        if (-not $configurationName) { $configurationName = $configuration.name }
         $assignmentsInfo = (Get-GraphCallCustom -endpoint ("$uri/$type/" + $configuration.id + "/$uriAssignment") -value $false)
 
         if($uriAssignment -eq "groupAssignments"){$assignments = $assignmentsInfo.value}
@@ -125,25 +136,25 @@ function Get-GroupAssignments{
         foreach($assignment in $assignments){
             # Include
             if($uriAssignment -eq "groupAssignments" -and $assignment.targetGroupId -eq $groupId -and (-not $assignment.excludeGroup)){
-                Write-Host "+" $configuration.displayName
+                Write-Host "+" $configurationName
                 $hasAssignment = $true
             }elseif($uriAssignment -eq "assignments" -and $assignment.groupId -eq $groupId -and $assignment.'@odata.type' -eq '#microsoft.graph.groupAssignmentTarget'){
-                Write-Host "+" $configuration.displayName
+                Write-Host "+" $configurationName
                 $hasAssignment = $true
             }elseif($uriAssignment -eq "assignments" -and $groupId -eq "acacacac-9df4-4c7d-9d50-4ef0226f57a9" -and $assignment.'@odata.type' -eq '#microsoft.graph.allLicensedUsersAssignmentTarget'){
-                Write-Host "+" $configuration.displayName
+                Write-Host "+" $configurationName
                 $hasAssignment = $true
             }elseif($uriAssignment -eq "assignments" -and $groupId -eq "adadadad-808e-44e2-905a-0b7873a8a531" -and $assignment.'@odata.type' -eq '#microsoft.graph.allDevicesAssignmentTarget'){
-                Write-Host "+" $configuration.displayName
+                Write-Host "+" $configurationName
                 $hasAssignment = $true
             }
 
             # Exclude
             if($uriAssignment -eq "groupAssignments" -and $assignment.targetGroupId -eq $groupId -and $assignment.excludeGroup){
-                Write-Host "-" $configuration.displayName
+                Write-Host "-" $configurationName
                 $hasAssignment = $true
             }elseif($uriAssignment -eq "assignments" -and $assignment.groupId -eq $groupId -and $assignment.'@odata.type' -eq '#microsoft.graph.exclusionGroupAssignmentTarget'){
-                Write-Host "-" $configuration.displayName
+                Write-Host "-" $configurationName
                 $hasAssignment = $true
             }
         }
@@ -154,11 +165,11 @@ function Get-GroupAssignments{
 #################################################################################################
 ###################################### Install Modules###########################################
 #################################################################################################
-if (Get-Module -ListAvailable -Name Microsoft.Graph) {
+if (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication) {
     Write-Information "Microsoft Graph already installed"
 } else {
     try {
-        Install-Module -Name Microsoft.Graph -Scope CurrentUser -Repository PSGallery -Force
+        Install-Module -Name Microsoft.Graph.Authentication -Scope CurrentUser -Repository PSGallery -Force
     }catch{
         $_.message
         exit
@@ -172,7 +183,14 @@ Import-Module microsoft.graph.authentication
 #########################################################################################################
 
 #Auth
-$graph = Connect-MgGraph -Scopes DeviceManagementConfiguration.Read.All, DeviceManagementApps.Read.All
+# Read-only scopes for the resource families queried below. No directory-wide write access.
+$graph = Connect-MgGraph -Scopes @(
+    'DeviceManagementConfiguration.Read.All',
+    'DeviceManagementApps.Read.All',
+    'DeviceManagementServiceConfig.Read.All',
+    'DeviceManagementScripts.Read.All',
+    'Group.Read.All'
+) -ErrorAction Stop
 $group = $null
 
 # Get an check aad group
@@ -219,3 +237,15 @@ Get-Topic -topicHeadline "Enrollment Status Page" -groupId $group.id -uri "devic
 
 # Security baselines
 Get-Topic -topicHeadline "Security baselines" -groupId $group.id -uri "deviceManagement" -type "intents" -uriAssignment "assignments"
+
+# Settings Catalog, modern endpoint-security policies, and migrated security baselines
+Get-Topic -topicHeadline "Settings Catalog and modern Endpoint Security" -groupId $group.id -uri "deviceManagement" -type "configurationPolicies" -uriAssignment "assignments"
+
+# App configuration and protection
+Get-Topic -topicHeadline "Managed-device app configuration" -groupId $group.id -uri "deviceAppManagement" -type "mobileAppConfigurations" -uriAssignment "assignments"
+Get-Topic -topicHeadline "iOS app protection" -groupId $group.id -uri "deviceAppManagement" -type "iosManagedAppProtections" -uriAssignment "assignments"
+Get-Topic -topicHeadline "Android app protection" -groupId $group.id -uri "deviceAppManagement" -type "androidManagedAppProtections" -uriAssignment "assignments"
+
+# Update rings already appear in deviceConfigurations; dedicated update profiles follow.
+Get-Topic -topicHeadline "Windows feature updates" -groupId $group.id -uri "deviceManagement" -type "windowsFeatureUpdateProfiles" -uriAssignment "assignments"
+Get-Topic -topicHeadline "Windows quality updates" -groupId $group.id -uri "deviceManagement" -type "windowsQualityUpdateProfiles" -uriAssignment "assignments"

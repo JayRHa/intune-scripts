@@ -9,6 +9,10 @@
     Version: 1.0
 #>
 
+param(
+    [Nullable[DateTimeOffset]]$RebootDeadline
+)
+
 function Register-NotificationApp {
     param (
         [string]$AppID,
@@ -87,6 +91,11 @@ $tostImageBase64 = "iVBORw0KGgoAAAANSUhEUgAAAyoAAAImCAYAAAC8fH4IAAABhWlDQ1BJQ0Mg
 $ToastTitle          = "Companyname IT Support"
 $ToastHeadline       = "A reboot of your system is required!!"
 $ToastText           = "We have installed updates on your system and a reboot is required. You should reboot your system as soon as possible. If now is the right time, perform the reboot now."
+if ($null -ne $RebootDeadline) {
+    $deadlineText = $RebootDeadline.ToLocalTime().ToString('f')
+    $ToastText += " Reboot deadline: $deadlineText."
+}
+
 $ToastMessage        = "`nRun reboot now?"
 $ToastLogoPath       = "C:\Windows\ImmersiveControlPanel\images\logo.png"
 $ToastImagePath      = "$env:TEMP\ToastImage.png"
@@ -113,7 +122,7 @@ New-ProtocolAction -ActionName "ActionReboot"
             <image placement="hero" src="$ToastImagePath" />
             <image placement="appLogoOverride" hint-crop="circle" src="$ToastLogoPath" />
             <text>$ToastHeadline</text>
-            <text>$ToastText</text>
+            <text>$([System.Security.SecurityElement]::Escape($ToastText))</text>
             <group>
                 <subgroup>
                     <text hint-style="body" hint-wrap="true">$ToastMessage</text>

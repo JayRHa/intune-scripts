@@ -51,7 +51,7 @@ $cmtraceSourceLink = "https://github.com/JayRHa/Intune-Scripts/raw/cdc787103c094
 #################################################
 
 [System.GC]::Collect()
-$path = (Split-Path -Parent $($global:MyInvocation.MyCommand.Definition))
+$path = $PSScriptRoot
 
 # Load Assemblies
 Add-Type -AssemblyName System.Windows.Forms
@@ -69,7 +69,7 @@ $objForm.add_Closing({ $objForm.ShowInTaskBar = $False })
 
 # Add Icon
 $objNotifyIcon = New-Object System.Windows.Forms.NotifyIcon
-$objNotifyIcon.Icon = $path + "\companyPortal.ico"
+$objNotifyIcon.Icon = [System.Drawing.Icon]::new((Join-Path $path "companyPortal.ico"))
 $objNotifyIcon.Text = "TrayUtility"
 $objNotifyIcon.Visible = $true
 
@@ -110,7 +110,7 @@ $buttonExit.add_Click({
 
 $objContextMenu.MenuItems.Add($buttonSync) | Out-Null
 $objContextMenu.MenuItems.Add($buttonOpenCompanyPortal) | Out-Null
-$objContextMenu.MenuItems.AddRange($menuTroubleshoot) | Out-Null
+$objContextMenu.MenuItems.Add($menuTroubleshoot) | Out-Null
 $objContextMenu.MenuItems.Add($buttonExit) | Out-Null
 
 # Create submenu for CmTrace installation
@@ -165,7 +165,8 @@ $objForm.ContextMenu = $objContextMenu
 
 # Show the Form - Keep it open
 $objForm.ShowDialog() | Out-Null
-$objForm.Dispose()
+$objNotifyIcon.Dispose()
+    $objForm.Dispose()
 '@
 
 
@@ -180,7 +181,7 @@ New-Item -Path "$scriptPath\Create-IntuneSystemtray.ps1" -type "file" -Value $sc
 # Create Task
 $trigger    = New-ScheduledTaskTrigger -AtLogOn
 $user       = New-ScheduledTaskPrincipal -GroupId S-1-5-32-545
-$action     = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-WindowStyle hidden $scriptPath\Create-IntuneSystemtray.ps1"
+$action     = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument '-NoProfile -STA -WindowStyle Hidden -File "C:\ProgramData\IntuneSystemtray\Create-IntuneSystemtray.ps1"'
 $task       = New-ScheduledTask -Action $action -Trigger $trigger -Principal $user
 Register-ScheduledTask -TaskName $taskName -InputObject $task
 Get-ScheduledTask | Where-Object {$_.TaskName -eq $taskName} | Start-ScheduledTask
