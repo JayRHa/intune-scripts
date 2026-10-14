@@ -3,7 +3,7 @@
     Export discovered apps from Intune to a Log Analytics workspace.
 .DESCRIPTION
     Connects to Microsoft Graph, enumerates all managed devices and their
-    detected applications, then sends each app record as JSON to the Azure
+    detected applications, then sends each device app collection as JSON to the Azure
     Monitor HTTP Data Collector API.
 .NOTES
     Author : Jannik Reinhard (jannikreinhard.com)
@@ -32,7 +32,7 @@ function Get-GraphAuthentication{
     }
 
     try {
-      Connect-MgGraph -Scopes "Device.Read.All"
+      Connect-MgGraph -Scopes "DeviceManagementManagedDevices.Read.All" -ErrorAction Stop
     } catch {
       Write-Error "Failed to connect to MgGraph: $_"
       return $false
@@ -89,28 +89,37 @@ Function Send-LogAnalyticsData($f_customerId, $f_sharedKey, $f_body, $f_logType)
 ########################################### Start ###############################################
 #################################################################################################
 
-Get-GraphAuthentication | Out-Null
+if (-not (Get-GraphAuthentication)) { exit 1 }
 
 try {
-    Get-MgDeviceManagementManagedDevice | ForEach-Object {
+    Get-MgDeviceManagementManagedDevice -All -ErrorAction Stop | ForEach-Object {
         $deviceHostname = $_.deviceName
-        $device = Get-MgDeviceManagementManagedDevice -Expand detectedApps -ManagedDeviceId $_.id
-        $device.detectedApps | ForEach-Object {
-            $properties = [Ordered] @{
-                "Hostname"      = $deviceHostname
-                "AppName"       = $_.DisplayName
-                "Version"       = $_.Version
+        $device = Get-MgDeviceManagementManagedDevice -ExpandProperty detectedApps -ManagedDeviceId $_.id -ErrorAction Stop
+        $records = @($device.detectedApps | ForEach-Object {
+            [PSCustomObject][ordered]@{
+                Hostname = $deviceHostname
+                AppName = $_.DisplayName
+                Version = $_.Version
             }
-
-            $sdeviceAppInventory = (New-Object -TypeName "PSObject" -Property $properties) | ConvertTo-Json
-
-            $params = @{
-                f_customerId = $customerId
-                f_sharedKey  = $sharedKey
-                f_body       = ([System.Text.Encoding]::UTF8.GetBytes($sdeviceAppInventory))
-                f_logType    = $logType
+        })
+        if ($records.Count -gt 0) {
+            # Bound each request to 1 MiB of UTF-8 JSON, below the API's 30 MiB limit.
+            $batch = [System.Collections.Generic.List[object]]::new()
+            $batchBytes = 2
+            foreach ($record in $records) {
+                $recordBytes = [Text.Encoding]::UTF8.GetByteCount(($record | ConvertTo-Json -Compress))
+                if ($batch.Count -gt 0 -and ($batchBytes + $recordBytes + 1) -gt 1MB) {
+                    $null = Send-LogAnalyticsData -f_customerId $customerId -f_sharedKey $sharedKey -f_logType $logType -f_body ([Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject @($batch.ToArray()) -Compress)))
+                    $batch.Clear()
+                    $batchBytes = 2
+                }
+                if ($recordBytes -gt (1MB - 2)) { throw "An app inventory record exceeds the batch limit." }
+                $batch.Add($record)
+                $batchBytes += $recordBytes + 1
             }
-            $logResponse = Send-LogAnalyticsData @params
+            if ($batch.Count -gt 0) {
+                $null = Send-LogAnalyticsData -f_customerId $customerId -f_sharedKey $sharedKey -f_logType $logType -f_body ([Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject @($batch.ToArray()) -Compress)))
+            }
         }
     }
 }
